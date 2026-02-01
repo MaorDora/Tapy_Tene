@@ -2,8 +2,9 @@
 import React from 'react';
 import { RefreshCcw, ShieldCheck, AlertOctagon, CheckSquare } from 'lucide-react';
 import AnomalyCard from './AnomalyCard';
-import { mockAnomalies, mockInterventions, mockInsights } from '../mockData';
+import { mockAnomalies, mockInterventions, mockInsights, mockActionRecommendations } from '../mockData';
 import { Insight } from '../data/insightEngine'; // Added import
+import { ActionRecommendation } from '../types';
 
 const Dashboard: React.FC = () => {
     const [isRevolvingModalOpen, setIsRevolvingModalOpen] = React.useState<boolean>(false);
@@ -82,43 +83,44 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Right Column: "The Chase" (Guardrails Log) */}
+                {/* Right Column: "The Action" (Recommendations) */}
                 <div className="space-y-6">
                     <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                        <ShieldCheck className="w-5 h-5 text-blue-600" />
-                        בקרת איכות (נחסמו)
+                        <CheckSquare className="w-5 h-5 text-blue-600" />
+                        המלצות לפעולה (נדרש טיפול)
                     </h3>
 
                     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                         <div className="p-3 bg-slate-50 border-b border-slate-100 text-xs text-slate-500">
-                            אירועים שנמנעו ב-24 שעות האחרונות
+                            זוהו {mockActionRecommendations.length} פערים הדורשים התערבות מיידית
                         </div>
                         <div className="divide-y divide-slate-100">
-                            {mockInterventions.slice(0, 5).map((item) => (
-                                <div key={item.id} className="p-4 hover:bg-slate-50 transition-colors">
-                                    <div className="flex justify-between items-start mb-1">
-                                        <span className="text-xs font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded">{item.vehicleId}</span>
-                                        <span className="text-[10px] text-slate-400 font-mono">{item.timestamp}</span>
-                                    </div>
-                                    <p className="text-sm text-slate-800 font-medium mb-1">
-                                        ניסיון: {item.actionAttempted}
-                                    </p>
-                                    <p className="text-xs text-rose-600 flex items-center gap-1">
-                                        <ShieldCheck className="w-3 h-3" />
-                                        {item.systemResponse}
-                                    </p>
-                                    <div className="mt-2 flex items-center gap-2">
-                                        <div className="w-5 h-5 rounded-full bg-slate-100 text-[10px] flex items-center justify-center font-bold text-slate-500">
-                                            {item.technicianName.charAt(0)}
+                            {mockActionRecommendations.map((item: ActionRecommendation) => (
+                                <div key={item.id} className="p-4 hover:bg-slate-50 transition-colors group">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex items-center gap-2">
+                                            {item.urgency === 'high' && <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />}
+                                            <span className="text-sm font-bold text-slate-900">{item.title}</span>
                                         </div>
-                                        <span className="text-xs text-slate-500">{item.technicianName}</span>
+                                        {item.orderId && (
+                                            <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">
+                                                {item.orderId}
+                                            </span>
+                                        )}
                                     </div>
+                                    <p className="text-xs text-slate-600 mb-3 leading-relaxed">
+                                        {item.description}
+                                    </p>
+                                    <button className="w-full py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 group-hover:shadow-sm">
+                                        {item.actionLabel}
+                                        <span className="opacity-0 group-hover:opacity-100 transition-opacity">&larr;</span>
+                                    </button>
                                 </div>
                             ))}
                         </div>
                         <div className="p-3 bg-slate-50 border-t border-slate-100 text-center">
                             <button className="text-xs text-blue-600 font-medium hover:underline">
-                                צפה בכל היסטוריית החסימות
+                                צפה בכל ההמלצות
                             </button>
                         </div>
                     </div>

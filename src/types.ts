@@ -46,6 +46,16 @@ export interface ReportItem {
     size?: string; // Added to match usage in Reports.tsx
 }
 
+export interface ActionRecommendation {
+    id: string;
+    type: 'part_missing' | 'approval_required' | 'technician_load' | 'routine_maintenance';
+    title: string;
+    description: string;
+    urgency: 'high' | 'medium' | 'low';
+    actionLabel: string;
+    orderId?: string;
+}
+
 // SAP EKKO - Purchasing Document Header
 export interface SAPOrderHeader {
     EBELN: string; // Purchasing Document Number (e.g., 4500000001)

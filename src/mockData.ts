@@ -11,15 +11,120 @@ export const mockInterventions: Intervention[] = simulationEngine.generateInterv
 // --- Static / UI Specific Data (Still mocked for now as they are less critical for connectedness) ---
 
 // Recharts data
-export const mockChartData = [
-    { name: 'א', value: 400, uv: 2400, pv: 2400, amt: 2400 },
-    { name: 'ב', value: 300, uv: 1398, pv: 2210, amt: 2210 },
-    { name: 'ג', value: 200, uv: 9800, pv: 2290, amt: 2290 },
-    { name: 'ד', value: 278, uv: 3908, pv: 2000, amt: 2000 },
-    { name: 'ה', value: 189, uv: 4800, pv: 2181, amt: 2181 },
-    { name: 'ו', value: 239, uv: 3800, pv: 2500, amt: 2500 },
-    { name: 'ש', value: 349, uv: 4300, pv: 2100, amt: 2100 },
-];
+// --- Dynamic Data Generators for Deep Investigation Graphs ---
+
+// Helper: Get domain from material description (Simple mapping logic)
+const getDomain = (desc: string): string => {
+    if (desc.includes('פנס') || desc.includes('אופטי')) return 'אופטיקה';
+    if (desc.includes('שמן') || desc.includes('מסנן') || desc.includes('אטם') || desc.includes('מנוע')) return 'מערכות ממונעות';
+    if (desc.includes('בורג') || desc.includes('דיסקית')) return 'כללי';
+    return 'תקשוב'; // Default fallback
+};
+
+// 1. Generate Readiness Trend Data (Line Chart)
+const generateChartData = () => {
+    const ordersByDate = new Map<string, { total: number, anomalies: number }>();
+
+    mockSAPOrders.forEach(order => {
+        const date = order.BEDAT; // Format: YYYYMMDD
+        // Convert YYYYMMDD to readable DD/MM
+        const readableDate = `${date.substring(6, 8)}/${date.substring(4, 6)}`;
+
+        if (!ordersByDate.has(readableDate)) {
+            ordersByDate.set(readableDate, { total: 0, anomalies: 0 });
+        }
+
+        const entry = ordersByDate.get(readableDate)!;
+        entry.total++;
+
+        // Check for anomalies based on logs
+        const hasAnomaly = order.historyLogs?.some(log =>
+            log.systemNote?.includes('Missing') ||
+            log.systemNote?.includes('Resumed') ||
+            log.systemNote?.includes('Override')
+        );
+
+        if (hasAnomaly) {
+            entry.anomalies++;
+        }
+    });
+
+    // Convert Map to Array and Sort
+    return Array.from(ordersByDate.entries())
+        .map(([day, stats]) => ({
+            day,
+            readiness: Math.round(((stats.total - stats.anomalies) / stats.total) * 100) || 100, // % without anomalies
+            anomalies: stats.anomalies
+        }))
+        .sort((a, b) => a.day.localeCompare(b.day))
+        .slice(-7); // Last 7 days found
+};
+
+export const mockChartData = generateChartData();
+
+// 2. Generate Anomaly Causes (Pie Chart)
+const generateAnomalyCauses = () => {
+    const counts = {
+        parts: 0, // Missing Parts
+        process: 0, // Revolving Door (Re-opened)
+        manual: 0, // Manual Override
+        other: 0
+    };
+
+    mockSAPOrders.forEach(order => {
+        const logs = order.historyLogs || [];
+        if (logs.some(l => l.systemNote?.includes('Missing Parts'))) counts.parts++;
+        else if (logs.some(l => l.action === 'Re-opened')) counts.process++;
+        else if (logs.some(l => l.systemNote?.includes('Override'))) counts.manual++;
+        // else counts.other++; // Only count actual anomalies
+    });
+
+    // Determine 'Other' as a base noise or remaining
+    counts.other = Math.max(0, Math.floor(mockSAPOrders.length * 0.05));
+
+    return [
+        { name: 'חוסר בחלפים', value: counts.parts, color: '#f43f5e' },
+        { name: 'תהליך לקוי', value: counts.process, color: '#3b82f6' },
+        { name: 'חריגת נהלים', value: counts.manual, color: '#f59e0b' },
+        { name: 'אחר', value: counts.other, color: '#64748b' }
+    ].filter(item => item.value > 0);
+};
+
+export const mockAnomalyCauses = generateAnomalyCauses();
+
+// 3. Generate Norm Compliance (Table)
+const generateNormCompliance = () => {
+    const domainStats = new Map<string, { total: number, meeting: number }>();
+
+    mockSAPOrders.forEach(order => {
+        const firstItem = order.items?.[0];
+        const domain = firstItem ? getDomain(firstItem.TXZ01) : 'כללי';
+
+        if (!domainStats.has(domain)) {
+            domainStats.set(domain, { total: 0, meeting: 0 });
+        }
+
+        const stats = domainStats.get(domain)!;
+        stats.total++;
+
+        // Assume "Meeting Norm" if no strict anomaly
+        const hasAnomaly = order.historyLogs?.some(log => log.systemNote || log.action === 'Re-opened');
+        if (!hasAnomaly) {
+            stats.meeting++;
+        }
+    });
+
+    return Array.from(domainStats.entries()).map(([domain, stats]) => ({
+        domain,
+        totalOrders: stats.total,
+        meetingNorm: stats.meeting,
+        percentage: Math.round((stats.meeting / stats.total) * 100) || 0
+    }));
+};
+
+export const mockNormCompliance = generateNormCompliance();
+
+// --- Static Data Preserved ---
 
 export const mockBenchmarks = [
     { metric: 'זמינות מבצעית', unit: '%', myWorkshop: 92, avgWorkshop: 85, bestClass: 98 },
@@ -38,17 +143,39 @@ export const mockReports: ReportItem[] = [
     { id: '2', title: 'חריגות מלאי', dateCreated: '2026-05-02', status: 'בבדיקה', type: 'Weekly', size: '840KB' }
 ];
 
-
-export const mockAnomalyCauses = [
-    { name: 'טעות אנוש', value: 400, color: '#f43f5e' },
-    { name: 'תקלה טכנית', value: 300, color: '#3b82f6' },
-    { name: 'דיווח חסר', value: 300, color: '#f59e0b' },
-    { name: 'אחר', value: 200, color: '#64748b' }
-];
-
-export const mockNormCompliance = [
-    { domain: 'מערכות ממונעות', totalOrders: 152, meetingNorm: 135, percentage: 89 },
-    { domain: 'נשק ותחמושת', totalOrders: 98, meetingNorm: 98, percentage: 100 },
-    { domain: 'אופטיקה', totalOrders: 45, meetingNorm: 30, percentage: 66 },
-    { domain: 'תקשוב', totalOrders: 210, meetingNorm: 180, percentage: 85 }
+export const mockActionRecommendations: import('./types').ActionRecommendation[] = [
+    {
+        id: 'REC-001',
+        type: 'part_missing',
+        title: 'חסר מנוע לנגמ״ש',
+        description: 'הזמנת רכש (450000109) מתעכבת. מומלץ להנפיק הזמנה דחופה מספק חלופי.',
+        urgency: 'high',
+        actionLabel: 'הזמן מחדש',
+        orderId: '450000109'
+    },
+    {
+        id: 'REC-002',
+        type: 'approval_required',
+        title: 'אישור חריג תקציב',
+        description: 'החלפת ממסרת (450000112) חורגת ב-15% מהתקן. נדרש אישור מפקד סדנא.',
+        urgency: 'high',
+        actionLabel: 'אשר חריגה',
+        orderId: '450000112'
+    },
+    {
+        id: 'REC-003',
+        type: 'technician_load',
+        title: 'עומס במחלקת הנעה',
+        description: '3 טכנאים בחופשה, צפי איחור של 48 שעות במסירת 2 כלים.',
+        urgency: 'medium',
+        actionLabel: 'תגבר כוח אדם'
+    },
+    {
+        id: 'REC-004',
+        type: 'routine_maintenance',
+        title: 'טיפול תקופתי כלי צמ״ה',
+        description: 'מועד טיפול שנתי לדחפור D9 (מס׳ רישוי 88-112) חלף לפני 3 ימים.',
+        urgency: 'medium',
+        actionLabel: 'פתח קריאה'
+    }
 ];
