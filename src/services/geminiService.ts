@@ -1,30 +1,38 @@
 import { GoogleGenAI } from "@google/genai";
 
-const API_KEY = process.env.API_KEY || '';
+// שליפת המפתח בצורה המתאימה ל-Vite. אם לא קיים, יהיה מחרוזת ריקה.
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 
-// Initialize only if key exists to avoid runtime errors in demo mode without key
 let ai: GoogleGenAI | null = null;
+
+// איתחול רק אם יש מפתח אמיתי
 if (API_KEY) {
-  ai = new GoogleGenAI({ apiKey: API_KEY });
+  try {
+    ai = new GoogleGenAI({ apiKey: API_KEY });
+  } catch (error) {
+    console.error("Failed to initialize Gemini client:", error);
+  }
 }
 
 export const sendMessageToGemini = async (message: string): Promise<string> => {
-  if (!ai) {
-    // Mock response for prototype without API Key
-    console.warn("No API_KEY found. Returning mock response.");
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate latency
-    return `**סימולציית בינה מלאכותית (ללא מפתח API):**\n\nעל סמך הנתונים במערכת, נראה כי ישנה חריגה בתהליכי העבודה.\n\n*   **מקור 1:** יומן מחסן מראה ניפוק כפול.\n*   **מקור 2:** דיווח שעות טכנאי אינו תואם את שעת הניפוק.\n\nמומלץ לבדוק מול מנהל העבודה במחלקת רכב.`;
+  // 1. מצב "ללא חיבור" - אם אין מפתח או הלקוח לא אותחל
+  if (!API_KEY || !ai) {
+    // השהייה קטנה כדי שזה ירגיש טבעי בממשק (אופציונלי)
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    // ההודעה שתופיע למשתמש
+    return "⚠️ **מצב עבודה מקומי:**\nאין חיבור פעיל לבינה מלאכותית.\nהנתונים המוצגים במערכת נטענים מקבצים מקומיים (Mock Data) בלבד.";
   }
 
+  // 2. מצב "מחובר" - ניסיון שליחה ל-AI
   try {
-    const model = 'gemini-3-flash-preview';
+    const model = 'gemini-2.0-flash'; // מודל מומלץ (מהיר וחסכוני)
     const systemInstruction = `
       You are an expert military logistics AI assistant named "ChaTene". 
       Your user is a workshop manager ("Sharon"). 
-      Speak Hebrew. Be concise, professional, and skeptical. 
+      Speak Hebrew. Be concise, professional, and skeptical. ֱֶ
       Focus on facts, discrepancies, and actionable advice.
       Format responses with clear bullet points.
-      Always cite a "Source" (invent a plausible one like "SAP Log #402" or "Gate Camera 2") for your claims.
     `;
 
     const response = await ai.models.generateContent({
@@ -35,9 +43,9 @@ export const sendMessageToGemini = async (message: string): Promise<string> => {
       }
     });
 
-    return response.text || "לא התקבלה תשובה מהמערכת.";
+    return response.text || "התקבלה תשובה ריקה מהמערכת.";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "שגיאה בתקשורת עם מנוע הבינה המלאכותית. אנא נסה שנית מאוחר יותר.";
+    return "שגיאה בתקשורת עם מנוע הבינה המלאכותית (בדוק את החיבור לרשת).";
   }
 };
